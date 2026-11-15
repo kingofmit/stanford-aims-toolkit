@@ -1,0 +1,19 @@
+{
+  "name": "@aims/sentiment",
+  "version": "0.1.0",
+  "description": "AFINN lexicon-based sentiment analysis, emotion detection, aspect sentiment, and temporal tracking.",
+  "author": "Ahmed Allem",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

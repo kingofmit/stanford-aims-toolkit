@@ -1,0 +1,25 @@
+{
+  "title": "Stanford AIMS Toolkit — AI Methods for Social Scientists",
+  "description": "No-code NLP, topic modeling, sentiment analysis, and qualitative coding. Built for CASBS fellows and behavioral researchers.",
+  "creators": [
+    {
+      "name": "Allem, Ahmed",
+      "orcid": "0009-0003-4937-5858"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "social-science",
+    "ai-methods",
+    "nlp",
+    "topic-modeling",
+    "sentiment-analysis",
+    "qualitative-coding",
+    "survey-analysis",
+    "behavioral-science",
+    "casbs",
+    "typescript"
+  ],
+  "upload_type": "software",
+  "access_right": "open"
+}

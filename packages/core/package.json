@@ -1,0 +1,19 @@
+{
+  "name": "@aims/core",
+  "version": "0.1.0",
+  "description": "Dataset loading, column type detection, data validation, and project management for AIMS Toolkit.",
+  "author": "Ahmed Allem",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

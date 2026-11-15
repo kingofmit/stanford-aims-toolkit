@@ -1,0 +1,13 @@
+{
+  "name": "@aims/topics",
+  "version": "0.1.0",
+  "description": "LDA topic modeling, coherence scoring, and topic evolution for AIMS Toolkit.",
+  "author": "Ahmed Allem",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": { "build": "tsc", "dev": "tsc --watch", "clean": "rm -rf dist", "lint": "tsc --noEmit" },
+  "dependencies": { "@aims/core": "workspace:*" },
+  "devDependencies": { "typescript": "^5.8.0" }
+}
