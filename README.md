@@ -4,6 +4,7 @@
   <br />
   <br />
 
+  [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24243341.svg)](https://doi.org/10.5281/zenodo.24243341)
   [![npm](https://img.shields.io/npm/v/@aims/core?color=blue)](https://www.npmjs.com/package/@aims/core)
   [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
