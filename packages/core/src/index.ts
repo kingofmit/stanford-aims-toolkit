@@ -43,7 +43,7 @@ export function parseCSV(csv: string, source = 'inline'): Dataset {
     rows.push(row);
   }
 
-  const columns = detectColumnTypes({ rows, columns: [], rowCount: rows.length, source });
+  const columns = detectColumnTypes({ rows, source });
   return { rows, columns, rowCount: rows.length, source };
 }
 
@@ -64,7 +64,7 @@ export function parseJSON(data: Record<string, unknown>[], source = 'inline'): D
     return row;
   });
 
-  const columns = detectColumnTypes({ rows, columns: [], rowCount: rows.length, source });
+  const columns = detectColumnTypes({ rows, source });
   return { rows, columns, rowCount: rows.length, source };
 }
 
@@ -204,7 +204,12 @@ function parseLine(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        current += '"';
+        i++; // skip the escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
       result.push(current.trim());
       current = '';

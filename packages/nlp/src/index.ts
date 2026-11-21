@@ -1,6 +1,6 @@
-export type { Token, NamedEntity, EntityType, TextStats, LanguageResult, NGram } from './types';
+export type { Token, NamedEntity, EntityType, TextStats, LanguageResult, NGram, KWICResult, ReadabilityResult, Dictionary, DictionaryResult } from './types';
 
-import type { Token, NamedEntity, TextStats, LanguageResult, NGram } from './types';
+import type { Token, NamedEntity, TextStats, LanguageResult, NGram, KWICResult, ReadabilityResult, Dictionary, DictionaryResult } from './types';
 
 // ---------------------------------------------------------------------------
 // Stopwords (English)
@@ -236,4 +236,275 @@ export function ngrams(tokens: Token[], n: number): NGram[] {
   return Array.from(counts.entries())
     .map(([text, { tokens: t, count }]) => ({ tokens: t, text, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+// ---------------------------------------------------------------------------
+// KWIC (Key Word In Context) Concordance
+// ---------------------------------------------------------------------------
+
+/** Search documents for a keyword and return each occurrence with surrounding context. */
+export function concordance(
+  documents: string[],
+  keyword: string,
+  options?: {
+    windowSize?: number;
+    caseSensitive?: boolean;
+  },
+): KWICResult[] {
+  const windowSize = options?.windowSize ?? 50;
+  const caseSensitive = options?.caseSensitive ?? false;
+  const results: KWICResult[] = [];
+  const flags = caseSensitive ? 'g' : 'gi';
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, flags);
+
+  for (let docIdx = 0; docIdx < documents.length; docIdx++) {
+    const doc = documents[docIdx];
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(doc)) !== null) {
+      const pos = match.index;
+      const leftStart = Math.max(0, pos - windowSize);
+      const rightEnd = Math.min(doc.length, pos + match[0].length + windowSize);
+      results.push({
+        keyword,
+        left: doc.slice(leftStart, pos),
+        match: match[0],
+        right: doc.slice(pos + match[0].length, rightEnd),
+        documentIndex: docIdx,
+        position: pos,
+      });
+    }
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Syllable Counter (helper)
+// ---------------------------------------------------------------------------
+
+function countSyllables(word: string): number {
+  word = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (word.length <= 2) return 1;
+  let count = 0;
+  let prevVowel = false;
+  for (const ch of word) {
+    const isVowel = 'aeiouy'.includes(ch);
+    if (isVowel && !prevVowel) count++;
+    prevVowel = isVowel;
+  }
+  // Silent e
+  if (word.endsWith('e') && count > 1) count--;
+  return Math.max(count, 1);
+}
+
+// ---------------------------------------------------------------------------
+// Sentence Splitting
+// ---------------------------------------------------------------------------
+
+const ABBREVIATIONS = new Set([
+  'mr', 'mrs', 'ms', 'dr', 'prof', 'sr', 'jr', 'st', 'ave', 'blvd',
+  'gen', 'gov', 'sgt', 'cpl', 'pvt', 'capt', 'lt', 'col', 'maj',
+  'rev', 'hon', 'pres', 'dept', 'univ', 'assn', 'bros', 'inc', 'ltd',
+  'co', 'corp', 'vs', 'etc', 'approx', 'appt', 'est', 'min', 'max',
+  'misc', 'dept', 'est', 'vol', 'fig', 'eq', 'no', 'jan', 'feb',
+  'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+  'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+  'u.s', 'u.k', 'e.g', 'i.e', 'a.m', 'p.m',
+]);
+
+/** Split text into sentences, handling abbreviations, decimals, and ellipses. */
+export function splitSentences(text: string): string[] {
+  const sentences: string[] = [];
+  // Match potential sentence-ending punctuation
+  const regex = /([.!?]+)\s+/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    const punctuation = match[1];
+    const beforePunct = text.slice(lastIndex, match.index + punctuation.length);
+
+    // Check for ellipsis
+    if (punctuation === '...' || punctuation.length > 2) {
+      continue;
+    }
+
+    // Check for decimal numbers (digit.digit)
+    if (punctuation === '.') {
+      const charBefore = match.index > 0 ? text[match.index - 1] : '';
+      const charAfter = match.index + punctuation.length < text.length
+        ? text[match.index + punctuation.length]
+        : '';
+      // Skip if surrounded by digits on both sides (decimal)
+      if (/\d/.test(charBefore) && /\s*\d/.test(charAfter)) {
+        continue;
+      }
+    }
+
+    // Check for abbreviations
+    if (punctuation === '.') {
+      // Get the word before the period
+      const wordBefore = text.slice(lastIndex, match.index).trim().split(/\s+/).pop() ?? '';
+      const normalized = wordBefore.toLowerCase().replace(/\./g, '');
+      if (ABBREVIATIONS.has(normalized) || ABBREVIATIONS.has(wordBefore.toLowerCase())) {
+        continue;
+      }
+      // Single letter abbreviations like U.S.A.
+      if (/^[A-Za-z]$/.test(wordBefore) || /^([A-Za-z]\.)+$/.test(wordBefore + '.')) {
+        continue;
+      }
+    }
+
+    sentences.push(beforePunct.trim());
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  const remaining = text.slice(lastIndex).trim();
+  if (remaining.length > 0) {
+    sentences.push(remaining);
+  }
+
+  return sentences.filter((s) => s.length > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Readability Indices
+// ---------------------------------------------------------------------------
+
+/** Compute readability indices for a text. */
+export function readability(text: string): ReadabilityResult {
+  const words = text.match(/\b[a-zA-Z]+\b/g) ?? [];
+  const sentenceList = splitSentences(text);
+  const sentenceCount = Math.max(sentenceList.length, 1);
+  const wordCount = Math.max(words.length, 1);
+  const charCount = words.join('').length;
+
+  let totalSyllables = 0;
+  let polysyllables = 0;
+  for (const w of words) {
+    const syl = countSyllables(w);
+    totalSyllables += syl;
+    if (syl >= 3) polysyllables++;
+  }
+
+  const wordsPerSentence = wordCount / sentenceCount;
+  const syllablesPerWord = totalSyllables / wordCount;
+
+  // Flesch-Kincaid Grade Level
+  const fleschKincaid = 0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59;
+
+  // Flesch Reading Ease
+  const fleschReadingEase = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
+
+  // SMOG
+  const smog = 1.0430 * Math.sqrt(polysyllables * (30 / sentenceCount)) + 3.1291;
+
+  // Coleman-Liau
+  const L = (charCount / wordCount) * 100;
+  const S = (sentenceCount / wordCount) * 100;
+  const colemanLiau = 0.0588 * L - 0.296 * S - 15.8;
+
+  // Automated Readability Index
+  const automatedReadability = 4.71 * (charCount / wordCount) + 0.5 * wordsPerSentence - 21.43;
+
+  return {
+    fleschKincaid: Math.round(fleschKincaid * 100) / 100,
+    fleschReadingEase: Math.round(fleschReadingEase * 100) / 100,
+    smog: Math.round(smog * 100) / 100,
+    colemanLiau: Math.round(colemanLiau * 100) / 100,
+    automatedReadability: Math.round(automatedReadability * 100) / 100,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dictionary Analysis (LIWC-like)
+// ---------------------------------------------------------------------------
+
+/** Moral Foundations dictionary (Graham et al.). */
+export const MORAL_FOUNDATIONS: Dictionary = {
+  name: 'Moral Foundations',
+  categories: {
+    care: [
+      'compassion', 'empathy', 'suffer', 'hurt', 'harm', 'care', 'protect', 'kind',
+      'nurture', 'safe', 'vulnerable', 'abuse', 'cruel', 'pain', 'heal', 'comfort',
+      'mercy', 'gentle', 'tender', 'sympathy',
+    ],
+    fairness: [
+      'fair', 'equal', 'justice', 'rights', 'deserve', 'bias', 'discriminate', 'prejudice',
+      'honest', 'cheat', 'fraud', 'proportional', 'equitable', 'impartial', 'reciprocal',
+      'balanced', 'unfair', 'exploit', 'oppress', 'privilege',
+    ],
+    loyalty: [
+      'loyal', 'betray', 'patriot', 'group', 'team', 'unite', 'together', 'collective',
+      'ally', 'traitor', 'abandon', 'belong', 'community', 'solidarity', 'devoted',
+      'faithful', 'comrade', 'country', 'flag', 'tribe',
+    ],
+    authority: [
+      'authority', 'respect', 'obey', 'tradition', 'order', 'law', 'hierarchy', 'leader',
+      'rebel', 'subvert', 'disobey', 'submit', 'comply', 'discipline', 'duty', 'rank',
+      'status', 'command', 'rule', 'govern',
+    ],
+    purity: [
+      'pure', 'disgust', 'sacred', 'sin', 'clean', 'dirty', 'corrupt', 'wholesome',
+      'moral', 'immoral', 'modest', 'indecent', 'virtue', 'taint', 'defile', 'sanctity',
+      'noble', 'degrade', 'profane', 'pious',
+    ],
+  },
+};
+
+/** Cognitive Processes dictionary. */
+export const COGNITIVE_PROCESSES: Dictionary = {
+  name: 'Cognitive Processes',
+  categories: {
+    insight: [
+      'think', 'know', 'consider', 'realize', 'understand', 'recognize', 'discover',
+      'find', 'learn', 'notice', 'remember', 'see', 'decide', 'acknowledge', 'conclude',
+      'determine', 'figure', 'gather', 'infer', 'perceive',
+    ],
+    causation: [
+      'because', 'cause', 'effect', 'hence', 'therefore', 'result', 'consequently',
+      'lead', 'create', 'produce', 'generate', 'influence', 'impact', 'trigger',
+      'provoke', 'induce', 'due', 'reason', 'why', 'outcome',
+    ],
+    certainty: [
+      'always', 'never', 'definitely', 'absolutely', 'certain', 'clearly', 'obvious',
+      'undoubtedly', 'sure', 'indeed', 'without doubt', 'certainly', 'precisely',
+      'exactly', 'completely', 'entirely', 'surely', 'truly', 'unquestionably',
+      'inevitably',
+    ],
+    tentativeness: [
+      'maybe', 'perhaps', 'possibly', 'might', 'could', 'seem', 'appear', 'suggest',
+      'guess', 'assume', 'probable', 'likely', 'unclear', 'uncertain', 'roughly',
+      'approximately', 'almost', 'somewhat', 'apparently', 'potentially',
+    ],
+  },
+};
+
+/** Analyze text against a dictionary, returning word counts and percentages per category. */
+export function analyzeDictionary(text: string, dictionary: Dictionary): DictionaryResult {
+  const words = text.toLowerCase().match(/\b[a-z']+\b/g) ?? [];
+  const totalWords = words.length;
+
+  const categories: DictionaryResult['categories'] = {};
+
+  for (const [category, dictWords] of Object.entries(dictionary.categories)) {
+    const wordSet = new Set(dictWords.map((w) => w.toLowerCase()));
+    const matched: string[] = [];
+
+    for (const w of words) {
+      if (wordSet.has(w)) {
+        matched.push(w);
+      }
+    }
+
+    categories[category] = {
+      count: matched.length,
+      percentage: totalWords > 0 ? Math.round((matched.length / totalWords) * 10000) / 100 : 0,
+      words: matched,
+    };
+  }
+
+  return { totalWords, categories };
 }

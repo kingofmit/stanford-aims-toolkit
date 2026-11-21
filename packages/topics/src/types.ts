@@ -17,6 +17,8 @@ export interface TopicModel {
   coherenceScore: number;
   perplexity: number;
   iterations: number;
+  /** Topic distribution for each document: documentTopics[i][k] = proportion of topic k in document i. Each row sums to 1.0. */
+  documentTopics: number[][];
 }
 
 export interface TopicDistribution {
@@ -42,4 +44,26 @@ export interface LDAConfig {
   beta?: number;
   iterations?: number;
   seed?: number;
+}
+
+export interface NMFConfig {
+  numTopics: number;
+  maxIterations?: number;
+  tolerance?: number;
+  seed?: number;
+}
+
+export interface PreprocessConfig {
+  removeStopwords?: boolean;
+  stem?: boolean;
+  lowercase?: boolean;
+  minWordLength?: number;
+  minDocFrequency?: number;
+  maxDocFrequencyRatio?: number;
+}
+
+export interface ProcessedCorpus {
+  documents: string[][];
+  vocabulary: string[];
+  dtMatrix: number[][];
 }

@@ -38,3 +38,11 @@ export interface TemporalPoint {
   comparative: number;
   count: number;
 }
+
+/** VADER-style sentiment result with compound and proportion scores. */
+export interface VADERResult {
+  compound: number;    // Normalized [-1, 1]
+  positive: number;    // Proportion of positive words
+  negative: number;    // Proportion of negative words
+  neutral: number;     // Proportion of neutral words
+}
