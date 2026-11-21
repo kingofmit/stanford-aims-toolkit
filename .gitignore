@@ -40,4 +40,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
-.codeagento
+.codeagento/
+.cursor/
+.aider/
+.continue/
+.copilot/
+.cursorrules
+AGENTS.md
